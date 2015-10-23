@@ -30,49 +30,27 @@ public class FAR
 
         addBorder();
         addOneWayStreets();
-        printMap();
-
-        // ensureConnectivity();
+        ensureConnectivity();
+        printMap(); 
     }
 
-    // public static void ensureConnectivity()
-    // {
-    //     for(int row = 1; row <= numRows; row++)
-    //     {
-    //         for(int col = 1; col <= numCols; col++)
-    //         {
-    //             MapNode curr = map[row][col];
-
-    //             int tunnelCase = isTunnel(row, col);
-    //             {
-    //                 if(tunnelCase == 1)
-    //                 {
-    //                     curr.addOutgoingEdge(curr.incomingEdges.get(0));
-    //                     curr.incomingEdges.get(0).addIncomingEdge(curr);
-                        
-    //                     // curr.addIncomingEdge(curr.outgoingEdges.get(0));
-    //                     // curr.outgoingEdges.get(0).addOutgoingEdge(curr);
-    //                 }
-    //                 else if(tunnelCase == 2)
-    //                 {
-    //                     curr.addIncomingEdge(curr.outgoingEdges.get(0));
-    //                     curr.outgoingEdges.get(0).addOutgoingEdge(curr);
-    //                 }
-    //                 else if(tunnelCase == 3)
-    //                 {
-    //                     curr.addOutgoingEdge(curr.incomingEdges.get(0));
-    //                     curr.incomingEdges.get(0).addIncomingEdge(curr);
-    //                 }
-                    
-    //                 if(tunnelCase > 0)
-    //                 {
-    //                     System.out.println(row + " " + col + " " + tunnelCase);
-    //                     printMap();
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+    public static void ensureConnectivity()
+    {
+        for(int row = 1; row <= numRows; row++)
+        {
+            for(int col = 1; col <= numCols; col++)
+            {
+                if(isTunnel(row, col))
+                {
+                    fixTunnel(row, col);
+                }
+                if(isSink(row, col) || isSource(row, col))
+                {
+                    fixSinkOrSource(row, col);
+                }
+            }
+        }
+    }
 
     public static void addOneWayStreets()
     {
@@ -170,59 +148,151 @@ public class FAR
         }
     }
 
-    // public static int isTunnel(int x, int y)
-    // {
-    //     MapNode curr = map[x][y];
-    //     if(curr.outgoingEdges.size() == 1 && curr.incomingEdges.size() == 1)
-    //     {
-    //         return 1;
-    //     }
-    //     if(curr.outgoingEdges.size() == 1 && curr.incomingEdges.size() == 0)
-    //     {
-    //         return 2;
-    //     }
-    //     if(curr.outgoingEdges.size() == 0 && curr.incomingEdges.size() == 1)
-    //     {
-    //         return 3;
-    //     }
-    //     else
-    //     {
-    //         return 0;
-    //     }
-    // }
+    public static boolean isTunnel(int row, int col)
+    {
+        MapNode curr = map[row][col];
+        if(curr.outgoingEdges == 1 && curr.incomingEdges == 1)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
 
-    // public static boolean isCorner(int x, int y)
-    // {
-    //     for(int i = -1; i < 2; i += 2)
-    //     {
-    //         for(int j = -1; j < 2; j++)
-    //         {
-    //             if(map[x + i][y].canWalk == false && map[x][y + j].canWalk == false)
-    //             {
-    //                 return true;
-    //             }
-    //         }
-    //     }
-    //     return false;
-    // }
+    public static void fixTunnel(int row, int col)
+    {
+        MapNode curr = map[row][col];
+        MapNode other;
+        int numChanges = 0;
 
-    // public static boolean isSink(int x, int y)
-    // {
-    //     if(isCorner(x, y))
-    //     {
-    //         return map[x][y].outgoingEdges.size() == 0 && map[x][y].incomingEdges.size() == 2;
-    //     }
-    //     return false;
-    // }
+        if(curr.edges[DIRECTION.UP.getValue()] == EDGE_TYPE.IN || curr.edges[DIRECTION.UP.getValue()] == EDGE_TYPE.OUT)
+        {
+            curr.edges[DIRECTION.UP.getValue()] = EDGE_TYPE.BOTH;
+            map[row - 1][col].edges[DIRECTION.DOWN.getValue()] = EDGE_TYPE.BOTH;
+            numChanges++;
+        }
 
-    // public static boolean isSource(int x, int y)
-    // {
-    //     if(isCorner(x, y))
-    //     {
-    //         return map[x][y].outgoingEdges.size() == 2 && map[x][y].incomingEdges.size() == 0;
-    //     }
-    //     return false;
-    // }
+        if(curr.edges[DIRECTION.DOWN.getValue()] == EDGE_TYPE.IN || curr.edges[DIRECTION.DOWN.getValue()] == EDGE_TYPE.OUT)
+        {
+            curr.edges[DIRECTION.DOWN.getValue()] = EDGE_TYPE.BOTH;
+            map[row + 1][col].edges[DIRECTION.UP.getValue()] = EDGE_TYPE.BOTH;
+            numChanges++;
+        }
+
+        if(curr.edges[DIRECTION.LEFT.getValue()] == EDGE_TYPE.IN || curr.edges[DIRECTION.LEFT.getValue()] == EDGE_TYPE.OUT)
+        {
+            curr.edges[DIRECTION.LEFT.getValue()] = EDGE_TYPE.BOTH;
+            map[row][col - 1].edges[DIRECTION.RIGHT.getValue()] = EDGE_TYPE.BOTH;
+            numChanges++;
+        }
+
+        if(curr.edges[DIRECTION.RIGHT.getValue()] == EDGE_TYPE.IN || curr.edges[DIRECTION.RIGHT.getValue()] == EDGE_TYPE.OUT)
+        {
+            curr.edges[DIRECTION.RIGHT.getValue()] = EDGE_TYPE.BOTH;
+            map[row][col + 1].edges[DIRECTION.LEFT.getValue()] = EDGE_TYPE.BOTH;
+            numChanges++;
+        }
+
+        if(numChanges != 2)
+        {
+            System.out.println("FUCK");
+            System.exit(0);
+        }
+    }
+
+    public static boolean isCorner(int x, int y)
+    {
+        for(int i = -1; i < 2; i += 2)
+        {
+            for(int j = -1; j < 2; j++)
+            {
+                if(map[x + i][y].canWalk == false && map[x][y + j].canWalk == false)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static boolean isSink(int x, int y)
+    {
+        if(isCorner(x, y))
+        {
+            return map[x][y].outgoingEdges == 0 && map[x][y].incomingEdges == 2;
+        }
+        return false;
+    }
+
+    public static boolean isSource(int x, int y)
+    {
+        if(isCorner(x, y))
+        {
+            return map[x][y].outgoingEdges == 2 && map[x][y].incomingEdges == 0;
+        }
+        return false;
+    }
+
+    public static boolean fixSinkOrSource(int row, int col)
+    {
+        for(int dR = -1; dR < 2; dR++)
+        {
+            for(int dC = -1; dC < 2; dC++)
+            {
+                if(dR == 0 && dC == 0)
+                {
+                    continue;
+                }
+
+                if(map[row + dR][col + dC].canWalk == false)
+                {
+                    continue;
+                }
+
+                if(isSink(row + dR, col + dC) || isSource(row + dR, col + dC))
+                {
+                    continue;
+                }
+                else
+                {
+                    if(validMove(row, col, row + dR, col + dC))
+                    {
+
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public static boolean validMove(int row1, int col1, int row2, int col2)
+    {
+        if(!map[row1][col1].canWalk || !map[row2][col2].canWalk)
+        {
+            return false;
+        }
+
+        if(col1 > col2)
+        {
+            if(!map[row1][col1 - 1].canWalk || !map[row2][col2 + 1].canWalk)
+            {
+                return false;
+            }
+        }
+        else if(col1 < col2)
+        {
+            if(!map[row1][col1 + 1].canWalk || !map[row2][col2 - 1].canWalk)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     public static void printMap()
     {
@@ -242,9 +312,14 @@ enum DIRECTION
     UP(0),
     DOWN(1),
     LEFT(2),
-    RIGHT(3);
+    RIGHT(3),
+    UP_LEFT(4),
+    UP_RIGHT(5),
+    DOWN_LEFT(6),
+    DOWN_RIGHT(7);
 
     private final int value;
+    public static final int numDirections = 8;
     private DIRECTION(int value)
     {
         this.value = value;
@@ -292,11 +367,8 @@ class MapNode
     {
         canWalk = cW;
 
-        edges = new EDGE_TYPE[4];
-        for(int i = 0; i < 4; i++)
-        {
-            edges[i] = EDGE_TYPE.NONE;
-        }
+        edges = new EDGE_TYPE[DIRECTION.numDirections];
+        changeAllEdges(EDGE_TYPE.NONE);
 
         this.r = r;
         this.c = c;
@@ -310,9 +382,59 @@ class MapNode
 
     public void changeAllEdges(EDGE_TYPE type)
     {
-        for(int i = 0; i < 4; i++)
+        for(int i = 0; i < DIRECTION.numDirections; i++)
         {
             edges[i] = type;
+        }
+        countEdges();
+    }
+
+    public void changeEdgeTo(int oRow, int oCol, EDGE_TYPE type)
+    {
+        if(r == oRow)
+        {
+            if(c < oCol)
+            {
+                edges[DIRECTION.RIGHT.getValue()] = type;
+            }
+            else if(c > oCol)
+            {
+                edges[DIRECTION.LEFT.getValue()] = type;
+            }
+        }
+        if(c == oCol)
+        {
+            if(r < oRow)
+            {
+                edges[DIRECTION.DOWN.getValue()] = type;
+            }
+            else if(r > oRow)
+            {
+                edges[DIRECTION.UP.getValue()] = type;
+            }
+        }
+
+        if(r > oRow)
+        {
+            if(c < oCol)
+            {
+                edges[DIRECTION.UP_RIGHT.getValue()] = type;
+            }
+            else if(c > oCol)
+            {
+                edges[DIRECTION.UP_LEFT.getValue()] = type;
+            }
+        }
+        if(r < oRow)
+        {
+            if(c < oCol)
+            {
+                edges[DIRECTION.DOWN_RIGHT.getValue()] = type;
+            }
+            else if(c > oCol)
+            {
+                edges[DIRECTION.DOWN_LEFT.getValue()] = type;
+            }
         }
     }
 
@@ -321,7 +443,7 @@ class MapNode
         incomingEdges = 0;
         outgoingEdges = 0;
 
-        for(int i = 0; i < 4; i++)
+        for(int i = 0; i < DIRECTION.numDirections; i++)
         {
             if(edges[i] == EDGE_TYPE.BOTH)
             {
@@ -363,6 +485,5 @@ class MapNode
         ret += " ";
 
         return ret;
-    }
-    
+    }    
 }
