@@ -37,6 +37,8 @@ public class FAR
         addBorder();
         addOneWayStreets();
         ensureConnectivity();
+        printMap();
+        verifyMap();
     }
 
     public static boolean verifyMap()
@@ -102,28 +104,187 @@ public class FAR
 
     public static void ensureConnectivity()
     {
+        ArrayList<Object[]> tunnels  = new ArrayList<Object[]>();
+        ArrayList<Object[]> sinksAndSources  = new ArrayList<Object[]>();
+
         for(int row = 1; row <= numRows; row++)
         {
             for(int col = 1; col <= numCols; col++)
             {
                 if(isTunnel(row, col))
                 {
-                    fixTunnel(row, col);
+                    tunnels.add(tunnelFix(row, col));
                 }
-                if(isSink(row, col) || isSource(row, col))
+                else if(isSink(row, col) || isSource(row, col))
                 {
-                    if(!fixSinkOrSource(row, col))
-                    {
-                        System.out.println("Couldn't fix a sink or source?");
-                        System.exit(0);
-                    }
-                }
-                if(isWeirdEnding(row, col))
-                {
-                    fixWeirdEnding(row, col);
+                    sinksAndSources.add(sinkOrSourceFix(row, col));
                 }
             }
         }
+
+        for(int i = 0; i < tunnels.size(); i++)
+        {
+            applyTunnelFix(tunnels.get(i));
+        }
+        System.out.println();
+        for(int i = 0; i < sinksAndSources.size(); i++)
+        {
+            applySinkOrSourceFix(sinksAndSources.get(i));
+        }
+
+        for(int row = 1; row <= numRows; row++)
+        {
+            for(int col = 1; col <= numCols; col++)
+            {
+                checkAndFixIslands(row, col);
+            }
+        }
+    }
+
+    public static void checkAndFixIslands(int row, int col)
+    {
+        MapNode curr = map[row][col];
+        if(curr.incomingEdges + curr.outgoingEdges == 1)
+        {
+            for(int i = DIRECTION.minCardinal; i < DIRECTION.maxCardinal; i++)
+            {
+                if(curr.edges[i] != EDGE_TYPE.NONE)
+                {
+                    curr.changeEdge(DIRECTION.directionFromInt(i), EDGE_TYPE.BOTH);
+
+                    int[] vector = DIRECTION.directionToVector[i];
+                    map[row + vector[0]][col + vector[1]].changeEdgeTo(row, col, EDGE_TYPE.BOTH);
+                }
+            }
+        }
+    }
+
+    public static Object[] tunnelFix(int row, int col)
+    {
+        MapNode curr = map[row][col];
+        Object[] tuple = new Object[4];
+        tuple[0] = new Integer(row);
+        tuple[1] = new Integer(col);
+
+        int t = 2;
+        for(int i = DIRECTION.minCardinal; i < DIRECTION.maxCardinal; i++)
+        {
+            if(curr.edges[i] == EDGE_TYPE.OUT || curr.edges[i] == EDGE_TYPE.IN)
+            {
+                tuple[t] = DIRECTION.directionFromInt(i);
+                t++;
+            }
+        }
+
+        if(t != 4)
+        {
+            System.out.println("Error creating tunnel fix for: " + row + " " + col);
+            return null;
+        }
+
+        return tuple;
+    }
+
+    public static void applyTunnelFix(Object[] fix)
+    {
+        for(int i = 0; i < 4; i++)
+        {
+            System.out.print(fix[i] + " ");
+        }
+        System.out.println();
+
+        int row = (Integer)fix[0];
+        int col = (Integer)fix[1];
+        MapNode curr = map[row][col];
+
+        // first edge
+        DIRECTION directionOne = (DIRECTION)fix[2];
+        int[] vectorOne = DIRECTION.directionToVector[directionOne.getValue()];
+        curr.edges[directionOne.getValue()] = EDGE_TYPE.BOTH;
+        map[row + vectorOne[0]][col + vectorOne[1]].changeEdgeTo(row, col, EDGE_TYPE.BOTH);
+
+        // second edge
+        DIRECTION directionTwo = (DIRECTION)fix[3];
+        int[] vectorTwo = DIRECTION.directionToVector[directionTwo.getValue()];
+        curr.edges[directionTwo.getValue()] = EDGE_TYPE.BOTH;
+        map[row + vectorTwo[0]][col + vectorTwo[1]].changeEdgeTo(row, col, EDGE_TYPE.BOTH);
+    }
+
+
+    public static Object[] sinkOrSourceFix(int row, int col)
+    {
+        MapNode curr = map[row][col];
+        Object[] tuple = new Object[4];
+        tuple[0] = new Integer(row);
+        tuple[1] = new Integer(col);
+
+        for(int dR = -1; dR < 2; dR += 2)
+        {
+            for(int dC = -1; dC < 2; dC += 2)
+            {
+                if(map[row + dR][col + dC].canWalk == false)
+                {
+                    continue;
+                }
+                else if(isSink(row + dR, col + dC) || isSource(row + dR, col + dC))
+                {
+                    continue;
+                }
+                else if(checkDiagonalMove(row, col, row + dR, col + dC))
+                {
+                    tuple[2] = DIRECTION.directionFromVector(dR, dC);
+                    tuple[3] = isSource(row, col) ? EDGE_TYPE.IN : EDGE_TYPE.OUT;
+                    return tuple;
+                }
+            }
+        }
+
+        for(int dR = -1; dR < 2; dR++)
+        {
+            for(int dC = -1; dC < 2; dC++)
+            {
+                if(dR == dC)
+                {
+                    continue;
+                }
+                else if(map[row + dR][col + dC].canWalk == false)
+                {
+                    continue;
+                }
+                else if(isSink(row + dR, col + dC) || isSource(row + dR, col + dC))
+                {
+                    continue;
+                }
+                else
+                {
+                    tuple[2] = DIRECTION.directionFromVector(dR, dC);
+                    tuple[3] = isSource(row, col) ? EDGE_TYPE.IN : EDGE_TYPE.OUT;
+                    return tuple;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public static void applySinkOrSourceFix(Object[] fix)
+    {
+        for(int i = 0; i < 4; i++)
+        {
+            System.out.print(fix[i] + " ");
+        }
+        System.out.println();
+
+        int row = (Integer)fix[0];
+        int col = (Integer)fix[1];
+        MapNode curr = map[row][col];
+
+        DIRECTION dir = (DIRECTION)fix[2];
+        EDGE_TYPE type = (EDGE_TYPE)fix[3];
+        curr.changeEdge(dir, type);
+
+        int[] vector = DIRECTION.directionToVector[dir.getValue()];
+        map[row + vector[0]][col + vector[1]].changeEdgeTo(row, col, (type == EDGE_TYPE.IN) ? EDGE_TYPE.OUT : EDGE_TYPE.IN);
     }
 
     public static void addOneWayStreets()
@@ -222,29 +383,6 @@ public class FAR
         }
     }
 
-    public static boolean isWeirdEnding(int row, int col)
-    {
-        MapNode curr = map[row][col];
-        if(curr.outgoingEdges == 1 && curr.incomingEdges == 0)
-        {
-            return true;
-        }
-        return false;
-    }
-
-    public static void fixWeirdEnding(int row, int col)
-    {
-        for(int i = 0; i < DIRECTION.numDirections; i++)
-        {
-            if(map[row][col].edges[i] != EDGE_TYPE.NONE)
-            {
-                int[] vector = DIRECTION.directionToVector[i];
-                map[row][col].changeEdgeTo(row + vector[0], col + vector[1], EDGE_TYPE.BOTH);
-                map[row + vector[0]][col + vector[1]].changeEdgeTo(row , row , EDGE_TYPE.BOTH);
-            }
-        }
-    }
-
     public static boolean isTunnel(int row, int col)
     {
         MapNode curr = map[row][col];
@@ -255,48 +393,6 @@ public class FAR
         else
         {
             return false;
-        }
-    }
-
-    public static void fixTunnel(int row, int col)
-    {
-        MapNode curr = map[row][col];
-        MapNode other;
-        int numChanges = 0;
-
-        if(curr.edges[DIRECTION.UP.getValue()] != EDGE_TYPE.NONE)
-        {
-            curr.edges[DIRECTION.UP.getValue()] = EDGE_TYPE.BOTH;
-            map[row - 1][col].edges[DIRECTION.DOWN.getValue()] = EDGE_TYPE.BOTH;
-            numChanges++;
-        }
-
-        if(curr.edges[DIRECTION.DOWN.getValue()] != EDGE_TYPE.NONE)
-        {
-            curr.edges[DIRECTION.DOWN.getValue()] = EDGE_TYPE.BOTH;
-            map[row + 1][col].edges[DIRECTION.UP.getValue()] = EDGE_TYPE.BOTH;
-            numChanges++;
-        }
-
-        if(curr.edges[DIRECTION.LEFT.getValue()] != EDGE_TYPE.NONE)
-        {
-            curr.edges[DIRECTION.LEFT.getValue()] = EDGE_TYPE.BOTH;
-            map[row][col - 1].edges[DIRECTION.RIGHT.getValue()] = EDGE_TYPE.BOTH;
-            numChanges++;
-        }
-
-        if(curr.edges[DIRECTION.RIGHT.getValue()] != EDGE_TYPE.NONE)
-        {
-            curr.edges[DIRECTION.RIGHT.getValue()] = EDGE_TYPE.BOTH;
-            map[row][col + 1].edges[DIRECTION.LEFT.getValue()] = EDGE_TYPE.BOTH;
-            numChanges++;
-        }
-
-        if(numChanges != 2)
-        {
-            System.out.println("Couldn't fix a tunnel?");
-            System.out.println(row + " " + col);
-            System.exit(0);
         }
     }
 
@@ -333,48 +429,8 @@ public class FAR
         return false;
     }
 
-    public static boolean fixSinkOrSource(int row, int col)
+    public static boolean checkDiagonalMove(int row1, int col1, int row2, int col2)
     {
-        for(int dR = -1; dR < 2; dR++)
-        {
-            for(int dC = -1; dC < 2; dC++)
-            {
-                if(dR == 0 && dC == 0)
-                {
-                    continue;
-                }
-
-                if(map[row + dR][col + dC].canWalk == false)
-                {
-                    continue;
-                }
-
-                if(isSink(row + dR, col + dC) || isSource(row + dR, col + dC))
-                {
-                    continue;
-                }
-                else
-                {
-                    if(validMove(row, col, row + dR, col + dC))
-                    {
-                        map[row][col].changeEdgeTo(row + dR, col + dC, EDGE_TYPE.BOTH);
-                        map[row + dR][col + dC].changeEdgeTo(row, col, EDGE_TYPE.BOTH);
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    public static boolean validMove(int row1, int col1, int row2, int col2)
-    {
-        if(!map[row1][col1].canWalk || !map[row2][col2].canWalk)
-        {
-            return false;
-        }
-
         if(col1 > col2)
         {
             if(!map[row1][col1 - 1].canWalk || !map[row2][col2 + 1].canWalk)
@@ -431,9 +487,48 @@ enum DIRECTION
     private final int value;
     public static final int numDirections = 8;
 
+    public static final int minCardinal = 0;
+    public static final int maxCardinal = 4;
+
     private DIRECTION(int value)
     {
         this.value = value;
+    }
+
+    public static DIRECTION directionFromInt(int d)
+    {
+        switch(d)
+        {
+            case 0:
+                return UP;
+            case 1:
+                return DOWN;
+            case 2:
+                return LEFT;
+            case 3:
+                return RIGHT;
+            case 4:
+                return UP_LEFT;
+            case 5:
+                return UP_RIGHT;
+            case 6:
+                return DOWN_LEFT;
+            case 7:
+                return DOWN_RIGHT;
+        }
+        return null;
+    }
+
+    public static DIRECTION directionFromVector(int x, int y)
+    {
+        for(int i = 0; i < directionToVector.length; i++)
+        {
+            if(x == directionToVector[i][0] && y == directionToVector[i][1])
+            {
+                return directionFromInt(i);
+            }
+        }
+        return null;
     }
 
     public int getValue()
