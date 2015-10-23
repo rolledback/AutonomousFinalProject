@@ -5,6 +5,7 @@ public class FAR
 {
     static MapNode[][] map;
     static int numRows, numCols;
+    static int noWalk;
 
     public static void main(String[] args)
     {
@@ -13,6 +14,7 @@ public class FAR
         numRows = Integer.parseInt(input.nextLine());
         numCols = Integer.parseInt(input.nextLine());
         map = new MapNode[numRows + 2][numCols + 2];
+        noWalk = 0;
 
         int currRow = 0;
         while(input.hasNext())
@@ -22,7 +24,11 @@ public class FAR
 
             for(int i = 0; i < spots.length; i++)
             {
-                map[currRow + 1][i + 1] = new MapNode(spots[i].equals("0"), currRow, i);
+                map[currRow + 1][i + 1] = new MapNode(spots[i].equals("0"), currRow + 1, i + 1);
+                if(!spots[i].equals("0"))
+                {
+                    noWalk++;
+                }
             }
 
             currRow++;
@@ -31,7 +37,67 @@ public class FAR
         addBorder();
         addOneWayStreets();
         ensureConnectivity();
-        printMap(); 
+    }
+
+    public static boolean verifyMap()
+    {
+        System.out.println("Coorect Answer ==> " + (numRows * numCols - noWalk));
+        for(int row = 1; row <= numRows; row++)
+        {
+            for(int col = 1; col <= numCols; col++)
+            {
+                System.out.print(row + " " + col + " ==> ");
+                if(map[row][col].canWalk)
+                {
+                    boolean[][] seen = new boolean[numRows + 2][numCols + 2];
+                    seen[row][col] = true;
+                    System.out.println(DFS(row, col, seen));
+
+                    for(int r = 1; r <= numRows; r++)
+                    {
+                        for(int c = 1; c <= numCols; c++)
+                        {
+                            if(seen[r][c] == false && map[r][c].canWalk)
+                            {
+                                System.out.println(r + " " + c);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    System.out.println("Can't walk here");
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public static int DFS(int row, int col, boolean[][] seen)
+    {
+        if(!map[row][col].canWalk)
+        {
+            return 0;
+        }
+        else
+        {
+            int count = 1;
+            for(int i = 0; i < DIRECTION.numDirections; i++)
+            {
+                if(map[row][col].edges[i] == EDGE_TYPE.OUT || map[row][col].edges[i] == EDGE_TYPE.BOTH)
+                {
+                    int[] vector = DIRECTION.directionToVector[i];
+                    if(!seen[row + vector[0]][col + vector[1]])
+                    {
+                        seen[row + vector[0]][col + vector[1]] = true;
+                        count += DFS(row + vector[0], col + vector[1], seen);
+                    }
+                }
+            }
+
+            return count;
+        }
     }
 
     public static void ensureConnectivity()
@@ -46,7 +112,15 @@ public class FAR
                 }
                 if(isSink(row, col) || isSource(row, col))
                 {
-                    fixSinkOrSource(row, col);
+                    if(!fixSinkOrSource(row, col))
+                    {
+                        System.out.println("Couldn't fix a sink or source?");
+                        System.exit(0);
+                    }
+                }
+                if(isWeirdEnding(row, col))
+                {
+                    fixWeirdEnding(row, col);
                 }
             }
         }
@@ -137,13 +211,36 @@ public class FAR
             {
                 for(int j = 0; j < numCols + 2; j++)
                 {
-                     map[i][j] = new MapNode(false, -1, -1);
+                    map[i][j] = new MapNode(false, -1, -1);
                 }
             }
             else
             {
                 map[i][0] = new MapNode(false, -1, -1);
                 map[i][numCols + 2 - 1] = new MapNode(false, -1, -1);
+            }
+        }
+    }
+
+    public static boolean isWeirdEnding(int row, int col)
+    {
+        MapNode curr = map[row][col];
+        if(curr.outgoingEdges == 1 && curr.incomingEdges == 0)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    public static void fixWeirdEnding(int row, int col)
+    {
+        for(int i = 0; i < DIRECTION.numDirections; i++)
+        {
+            if(map[row][col].edges[i] != EDGE_TYPE.NONE)
+            {
+                int[] vector = DIRECTION.directionToVector[i];
+                map[row][col].changeEdgeTo(row + vector[0], col + vector[1], EDGE_TYPE.BOTH);
+                map[row + vector[0]][col + vector[1]].changeEdgeTo(row , row , EDGE_TYPE.BOTH);
             }
         }
     }
@@ -167,28 +264,28 @@ public class FAR
         MapNode other;
         int numChanges = 0;
 
-        if(curr.edges[DIRECTION.UP.getValue()] == EDGE_TYPE.IN || curr.edges[DIRECTION.UP.getValue()] == EDGE_TYPE.OUT)
+        if(curr.edges[DIRECTION.UP.getValue()] != EDGE_TYPE.NONE)
         {
             curr.edges[DIRECTION.UP.getValue()] = EDGE_TYPE.BOTH;
             map[row - 1][col].edges[DIRECTION.DOWN.getValue()] = EDGE_TYPE.BOTH;
             numChanges++;
         }
 
-        if(curr.edges[DIRECTION.DOWN.getValue()] == EDGE_TYPE.IN || curr.edges[DIRECTION.DOWN.getValue()] == EDGE_TYPE.OUT)
+        if(curr.edges[DIRECTION.DOWN.getValue()] != EDGE_TYPE.NONE)
         {
             curr.edges[DIRECTION.DOWN.getValue()] = EDGE_TYPE.BOTH;
             map[row + 1][col].edges[DIRECTION.UP.getValue()] = EDGE_TYPE.BOTH;
             numChanges++;
         }
 
-        if(curr.edges[DIRECTION.LEFT.getValue()] == EDGE_TYPE.IN || curr.edges[DIRECTION.LEFT.getValue()] == EDGE_TYPE.OUT)
+        if(curr.edges[DIRECTION.LEFT.getValue()] != EDGE_TYPE.NONE)
         {
             curr.edges[DIRECTION.LEFT.getValue()] = EDGE_TYPE.BOTH;
             map[row][col - 1].edges[DIRECTION.RIGHT.getValue()] = EDGE_TYPE.BOTH;
             numChanges++;
         }
 
-        if(curr.edges[DIRECTION.RIGHT.getValue()] == EDGE_TYPE.IN || curr.edges[DIRECTION.RIGHT.getValue()] == EDGE_TYPE.OUT)
+        if(curr.edges[DIRECTION.RIGHT.getValue()] != EDGE_TYPE.NONE)
         {
             curr.edges[DIRECTION.RIGHT.getValue()] = EDGE_TYPE.BOTH;
             map[row][col + 1].edges[DIRECTION.LEFT.getValue()] = EDGE_TYPE.BOTH;
@@ -197,7 +294,8 @@ public class FAR
 
         if(numChanges != 2)
         {
-            System.out.println("FUCK");
+            System.out.println("Couldn't fix a tunnel?");
+            System.out.println(row + " " + col);
             System.exit(0);
         }
     }
@@ -259,7 +357,8 @@ public class FAR
                 {
                     if(validMove(row, col, row + dR, col + dC))
                     {
-
+                        map[row][col].changeEdgeTo(row + dR, col + dC, EDGE_TYPE.BOTH);
+                        map[row + dR][col + dC].changeEdgeTo(row, col, EDGE_TYPE.BOTH);
                         return true;
                     }
                 }
@@ -318,8 +417,20 @@ enum DIRECTION
     DOWN_LEFT(6),
     DOWN_RIGHT(7);
 
+    public static int[][] directionToVector = {
+        {-1, 0},
+        {1, 0},
+        {0, -1},
+        {0, 1},
+        {-1, -1},
+        {-1, 1},
+        {1, -1},
+        {1, 1}
+    };
+
     private final int value;
     public static final int numDirections = 8;
+
     private DIRECTION(int value)
     {
         this.value = value;
@@ -340,6 +451,7 @@ enum EDGE_TYPE
 
     private final int value;
     private final String sValue;
+
     private EDGE_TYPE(int value, String sValue)
     {
         this.value = value;
@@ -436,6 +548,8 @@ class MapNode
                 edges[DIRECTION.DOWN_LEFT.getValue()] = type;
             }
         }
+
+        countEdges();
     }
 
     private void countEdges()
@@ -463,7 +577,7 @@ class MapNode
 
     public String toString()
     {
-        String ret = "--------- ";
+        String ret = "----------------- ";
 
         if(canWalk)
         {
@@ -474,10 +588,10 @@ class MapNode
             return ret;
         }
 
-        for(int i = 0; i < 4; i++)
+        for(int i = 0; i < DIRECTION.numDirections; i++)
         {
             ret += edges[i].getsValue();
-            if(i != 3)
+            if(i != DIRECTION.numDirections - 1)
             {
                 ret += ",";
             }
