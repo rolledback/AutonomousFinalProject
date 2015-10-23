@@ -22,7 +22,7 @@ public class FAR
 
             for(int i = 0; i < spots.length; i++)
             {
-                map[currRow + 1][i + 1] = new MapNode(spots[i].equals("0"));
+                map[currRow + 1][i + 1] = new MapNode(spots[i].equals("0"), currRow, i);
             }
 
             currRow++;
@@ -31,6 +31,47 @@ public class FAR
         addBorder();
         addOneWayStreets();
         printMap();
+
+        ensureConnectivity();
+    }
+
+    public static void ensureConnectivity()
+    {
+        for(int row = 1; row <= numRows; row++)
+        {
+            for(int col = 1; col <= numCols; col++)
+            {
+                MapNode curr = map[row][col];
+
+                int tunnelCase = isTunnel(row, col);
+                {
+                    if(tunnelCase == 1)
+                    {
+                        curr.addOutgoingEdge(curr.incomingEdges.get(0));
+                        curr.incomingEdges.get(0).addIncomingEdge(curr);
+                        
+                        // curr.addIncomingEdge(curr.outgoingEdges.get(0));
+                        // curr.outgoingEdges.get(0).addOutgoingEdge(curr);
+                    }
+                    else if(tunnelCase == 2)
+                    {
+                        curr.addIncomingEdge(curr.outgoingEdges.get(0));
+                        curr.outgoingEdges.get(0).addOutgoingEdge(curr);
+                    }
+                    else if(tunnelCase == 3)
+                    {
+                        curr.addOutgoingEdge(curr.incomingEdges.get(0));
+                        curr.incomingEdges.get(0).addIncomingEdge(curr);
+                    }
+                    
+                    if(tunnelCase > 0)
+                    {
+                        System.out.println(row + " " + col + " " + tunnelCase);
+                        printMap();
+                    }
+                }
+            }
+        }
     }
 
     public static void addOneWayStreets()
@@ -118,27 +159,35 @@ public class FAR
             {
                 for(int j = 0; j < numCols + 2; j++)
                 {
-                     map[i][j] = new MapNode(false);
+                     map[i][j] = new MapNode(false, -1, -1);
                 }
             }
             else
             {
-                map[i][0] = new MapNode(false);
-                map[i][numCols + 2 - 1] = new MapNode(false);
+                map[i][0] = new MapNode(false, -1, -1);
+                map[i][numCols + 2 - 1] = new MapNode(false, -1, -1);
             }
         }
     }
 
-    public static boolean isTunnel(int x, int y)
+    public static int isTunnel(int x, int y)
     {
         MapNode curr = map[x][y];
-        if(curr.outgoingEdges.size() <= 2)
+        if(curr.outgoingEdges.size() == 1 && curr.incomingEdges.size() == 1)
         {
-            return true;
+            return 1;
+        }
+        if(curr.outgoingEdges.size() == 1 && curr.incomingEdges.size() == 0)
+        {
+            return 2;
+        }
+        if(curr.outgoingEdges.size() == 0 && curr.incomingEdges.size() == 1)
+        {
+            return 3;
         }
         else
         {
-            return false;
+            return 0;
         }
     }
 
@@ -193,12 +242,15 @@ class MapNode
     public boolean canWalk;
     public ArrayList<MapNode> outgoingEdges;
     public ArrayList<MapNode> incomingEdges;
+    public int r, c;
 
-    public MapNode(boolean cW)
+    public MapNode(boolean cW, int r, int c)
     {
         canWalk = cW;
         outgoingEdges = new ArrayList<MapNode>();
         incomingEdges = new ArrayList<MapNode>();
+        this.r = r;
+        this.c = c;
     }
 
     public void addOutgoingEdge(MapNode n)
