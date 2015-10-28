@@ -1,5 +1,6 @@
 import java.util.Scanner;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class FAR
 {
@@ -10,7 +11,7 @@ public class FAR
     public static void main(String[] args)
     {
         Scanner input = new Scanner(System.in);
-        
+
         numRows = Integer.parseInt(input.nextLine());
         numCols = Integer.parseInt(input.nextLine());
         map = new MapNode[numRows + 2][numCols + 2];
@@ -36,24 +37,26 @@ public class FAR
 
         addBorder();
         addOneWayStreets();
-        ensureConnectivity();
         printMap();
+        ensureConnectivity();
         verifyMap();
+        printMap();
     }
 
     public static boolean verifyMap()
     {
-        System.out.println("Coorect Answer ==> " + (numRows * numCols - noWalk));
+        // printMap();
+        // System.out.println("Coorect Answer ==> " + (numRows * numCols - noWalk));
         for(int row = 1; row <= numRows; row++)
         {
             for(int col = 1; col <= numCols; col++)
             {
-                System.out.print(row + " " + col + " ==> ");
+                // System.out.print(row + " " + col + " ==> ");
                 if(map[row][col].canWalk)
                 {
                     boolean[][] seen = new boolean[numRows + 2][numCols + 2];
                     seen[row][col] = true;
-                    System.out.println(DFS(row, col, seen));
+                    DFS(row, col, seen);
 
                     for(int r = 1; r <= numRows; r++)
                     {
@@ -61,19 +64,41 @@ public class FAR
                         {
                             if(seen[r][c] == false && map[r][c].canWalk)
                             {
-                                System.out.println(r + " " + c);
+                                // System.out.println(r + " " + c);
+                                if(isNextTo(row, col, r, c))
+                                {
+                                    DIRECTION d1 = DIRECTION.directionFromVector(row - r, col - c);
+                                    DIRECTION d2 = DIRECTION.directionFromVector(r - row, c - col);
+
+                                    map[row][col].changeEdge(d2, EDGE_TYPE.BOTH);
+                                    map[r][c].changeEdge(d1, EDGE_TYPE.BOTH);
+                                    return verifyMap();
+                                }
                             }
                         }
                     }
                 }
                 else
                 {
-                    System.out.println("Can't walk here");
+                    // System.out.println("Can't walk here");
                 }
             }
         }
 
         return true;
+    }
+
+    public static boolean isNextTo(int row1, int col1, int row2, int col2)
+    {
+        if(row1 == row2 && Math.abs(col1 - col2) == 1)
+        {
+            return true;
+        }
+        if(col1 == col2 && Math.abs(row1 - row2) == 1)
+        {
+            return true;
+        }
+        return false;
     }
 
     public static int DFS(int row, int col, boolean[][] seen)
@@ -117,7 +142,11 @@ public class FAR
                 }
                 else if(isSink(row, col) || isSource(row, col))
                 {
-                    sinksAndSources.add(sinkOrSourceFix(row, col));
+                    ArrayList<Object[]> fixes = sinkOrSourceFix(row, col);
+                    for(Object[] fix: fixes)
+                    {
+                        sinksAndSources.add(fix);
+                    }
                 }
             }
         }
@@ -187,11 +216,11 @@ public class FAR
 
     public static void applyTunnelFix(Object[] fix)
     {
-        for(int i = 0; i < 4; i++)
-        {
-            System.out.print(fix[i] + " ");
-        }
-        System.out.println();
+        // for(int i = 0; i < 4; i++)
+        // {
+        //     System.out.print(fix[i] + " ");
+        // }
+        // System.out.println();
 
         int row = (Integer)fix[0];
         int col = (Integer)fix[1];
@@ -211,12 +240,10 @@ public class FAR
     }
 
 
-    public static Object[] sinkOrSourceFix(int row, int col)
+    public static ArrayList<Object[]> sinkOrSourceFix(int row, int col)
     {
         MapNode curr = map[row][col];
-        Object[] tuple = new Object[4];
-        tuple[0] = new Integer(row);
-        tuple[1] = new Integer(col);
+        ArrayList<Object[]> fixes = new ArrayList<Object[]>();
 
         for(int dR = -1; dR < 2; dR += 2)
         {
@@ -232,9 +259,13 @@ public class FAR
                 }
                 else if(checkDiagonalMove(row, col, row + dR, col + dC))
                 {
+                    Object[] tuple = new Object[4];
+                    tuple[0] = new Integer(row);
+                    tuple[1] = new Integer(col);
                     tuple[2] = DIRECTION.directionFromVector(dR, dC);
                     tuple[3] = isSource(row, col) ? EDGE_TYPE.IN : EDGE_TYPE.OUT;
-                    return tuple;
+                    fixes.add(tuple);
+                    return fixes;
                 }
             }
         }
@@ -243,7 +274,7 @@ public class FAR
         {
             for(int dC = -1; dC < 2; dC++)
             {
-                if(dR == dC)
+                if(Math.abs(dR) == Math.abs(dC))
                 {
                     continue;
                 }
@@ -257,9 +288,13 @@ public class FAR
                 }
                 else
                 {
+                    Object[] tuple = new Object[4];
+                    tuple[0] = new Integer(row);
+                    tuple[1] = new Integer(col);
                     tuple[2] = DIRECTION.directionFromVector(dR, dC);
                     tuple[3] = isSource(row, col) ? EDGE_TYPE.IN : EDGE_TYPE.OUT;
-                    return tuple;
+                    fixes.add(tuple);
+                    return fixes;
                 }
             }
         }
@@ -269,11 +304,11 @@ public class FAR
 
     public static void applySinkOrSourceFix(Object[] fix)
     {
-        for(int i = 0; i < 4; i++)
-        {
-            System.out.print(fix[i] + " ");
-        }
-        System.out.println();
+        // for(int i = 0; i < 4; i++)
+        // {
+        //     System.out.print(fix[i] + " ");
+        // }
+        // System.out.println();
 
         int row = (Integer)fix[0];
         int col = (Integer)fix[1];
@@ -281,10 +316,20 @@ public class FAR
 
         DIRECTION dir = (DIRECTION)fix[2];
         EDGE_TYPE type = (EDGE_TYPE)fix[3];
-        curr.changeEdge(dir, type);
 
-        int[] vector = DIRECTION.directionToVector[dir.getValue()];
-        map[row + vector[0]][col + vector[1]].changeEdgeTo(row, col, (type == EDGE_TYPE.IN) ? EDGE_TYPE.OUT : EDGE_TYPE.IN);
+        if(curr.edges[dir.getValue()] != EDGE_TYPE.NONE)
+        {
+            curr.changeEdge(dir, EDGE_TYPE.BOTH);
+            int[] vector = DIRECTION.directionToVector[dir.getValue()];
+            map[row + vector[0]][col + vector[1]].changeEdgeTo(row, col, EDGE_TYPE.BOTH);
+        }
+        else
+        {
+            curr.changeEdge(dir, type);
+            int[] vector = DIRECTION.directionToVector[dir.getValue()];
+            map[row + vector[0]][col + vector[1]].changeEdgeTo(row, col, (type == EDGE_TYPE.IN) ? EDGE_TYPE.OUT : EDGE_TYPE.IN);
+        }
+
     }
 
     public static void addOneWayStreets()
@@ -310,7 +355,7 @@ public class FAR
                 }
                 if(col != numCols)
                 {
-                    toRight = map[row][col + 1];                    
+                    toRight = map[row][col + 1];
                 }
 
                 if(row != 1)
@@ -329,9 +374,19 @@ public class FAR
                         toLeft.changeEdge(DIRECTION.RIGHT, EDGE_TYPE.OUT);
                         curr.changeEdge(DIRECTION.LEFT, EDGE_TYPE.IN);
                     }
+                    if(toRight != null && toRight.canWalk)
+                    {
+                        curr.changeEdge(DIRECTION.RIGHT, EDGE_TYPE.OUT);
+                        toRight.changeEdge(DIRECTION.LEFT, EDGE_TYPE.IN);
+                    }
                 }
                 else
                 {
+                    if(toLeft != null && toLeft.canWalk)
+                    {
+                        toLeft.changeEdge(DIRECTION.RIGHT, EDGE_TYPE.IN);
+                        curr.changeEdge(DIRECTION.LEFT, EDGE_TYPE.OUT);
+                    }
                     if(toRight != null && toRight.canWalk)
                     {
                         curr.changeEdge(DIRECTION.RIGHT, EDGE_TYPE.IN);
@@ -346,13 +401,23 @@ public class FAR
                         above.changeEdge(DIRECTION.DOWN, EDGE_TYPE.OUT);
                         curr.changeEdge(DIRECTION.UP, EDGE_TYPE.IN);
                     }
+                    if(below != null && below.canWalk)
+                    {
+                        curr.changeEdge(DIRECTION.DOWN, EDGE_TYPE.OUT);
+                        below.changeEdge(DIRECTION.UP, EDGE_TYPE.IN);
+                    }
                 }
                 else
                 {
+                    if(above != null && above.canWalk)
+                    {
+                        above.changeEdge(DIRECTION.DOWN, EDGE_TYPE.IN);
+                        curr.changeEdge(DIRECTION.UP, EDGE_TYPE.OUT);
+                    }
                     if(below != null && below.canWalk)
                     {
-                        below.changeEdge(DIRECTION.UP, EDGE_TYPE.OUT);
                         curr.changeEdge(DIRECTION.DOWN, EDGE_TYPE.IN);
+                        below.changeEdge(DIRECTION.UP, EDGE_TYPE.OUT);
                     }
                 }
 
@@ -515,6 +580,30 @@ enum DIRECTION
                 return DOWN_LEFT;
             case 7:
                 return DOWN_RIGHT;
+        }
+        return null;
+    }
+
+    public static String stringFromInt(int d)
+    {
+        switch(d)
+        {
+            case 0:
+                return "UP";
+            case 1:
+                return "DOWN";
+            case 2:
+                return "LEFT";
+            case 3:
+                return "RIGHT";
+            case 4:
+                return "UP_LEFT";
+            case 5:
+                return "UP_RIGHT";
+            case 6:
+                return "DOWN_LEFT";
+            case 7:
+                return "DOWN_RIGHT";
         }
         return null;
     }
@@ -694,5 +783,5 @@ class MapNode
         ret += " ";
 
         return ret;
-    }    
+    }
 }

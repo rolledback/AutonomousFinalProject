@@ -24,7 +24,8 @@ public class MapGenerator
             }
         }
 
-        System.out.println(p);
+        System.out.println(height);
+        System.out.println(width);
         printMap(map);
     }
 
@@ -37,7 +38,7 @@ public class MapGenerator
                 System.out.print((map[r][c] ? "0" : "1"));
                 if(c != map[r].length - 1)
                 {
-                    System.out.print(", ");
+                    System.out.print(",");
                 }
             }
             System.out.println();
