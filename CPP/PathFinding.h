@@ -60,16 +60,16 @@ namespace std
 
     struct NodeCompare
     {
-        bool operator() (const Node *lhs, const Node *rhs) const
+        bool operator() (const Node *&lhs, const Node *&rhs) const
         {
             return lhs->fScore < rhs->fScore;
         }
     };
 
-    template<> class hash<Node>
+    template<> class hash<Node*>
     {
         public:
-            size_t operator() (const Node *node) const
+            size_t operator() (const Node *&node) const
             {
                 return (size_t)node->row ^ (size_t)node->col % 17;
             }
@@ -87,22 +87,6 @@ namespace std
 
 namespace PathFinding
 {
-    class Compare
-    {
-        public:
-            bool operator() (Node v1, Node v2)
-            {
-                if(v1.fScore < v2.fScore)
-                {
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-    };
-
     bool grid[GRID_HEIGHT][GRID_WIDTH];
     unordered_set<pair<int, Node>> reservationTable;
 
