@@ -56,33 +56,69 @@ namespace std
                 prev = NULL;
                 time = 0;
             }
+
+            bool operator ==(const Node &node) const
+            {
+                return this->fScore == node.fScore;
+            }
+
+            bool operator !=(const Node &node) const
+            {
+                return this->fScore != node.fScore;
+            }
+
+            bool operator <(const Node &node) const
+            {
+                return this->fScore < node.fScore;
+            }
+
+            bool operator >(const Node &node) const
+            {
+                return this->fScore > node.fScore;
+            }
+
+            bool operator <=(const Node &node) const
+            {
+                return this->fScore <= node.fScore;
+            }
+
+            bool operator >=(const Node &node) const
+            {
+                return this->fScore >= node.fScore;
+            }
+
+            bool operator() (const Node &lhs, const Node &rhs) const
+            {
+                return lhs.fScore < rhs.fScore;
+            }
     };
 
-    struct NodeCompare
+    template <>
+    struct hash<pair<int, Node>>
     {
-        bool operator() (const Node *&lhs, const Node *&rhs) const
+        size_t operator()(const pair<int, Node> &temporalNode) const
         {
-            return lhs->fScore < rhs->fScore;
+          return (size_t)temporalNode.first ^ (size_t)temporalNode.second.row ^ (size_t)temporalNode.second.col % 17;
         }
     };
 
-    template<> class hash<Node*>
+    template <>
+    struct hash<Node>
     {
-        public:
-            size_t operator() (const Node *&node) const
-            {
-                return (size_t)node->row ^ (size_t)node->col % 17;
-            }
+        size_t operator()(const Node &node) const
+        {
+          return (size_t)node.row ^ (size_t)node.col % 17;
+        }
     };
 
-    template<> class hash<pair<int, Node>>
+    struct NodePtrComp
     {
-        public:
-            size_t operator() (const pair<int, Node> &temporalNode) const
-            {
-                return (size_t)temporalNode.first ^ (size_t)temporalNode.second.row ^ (size_t)temporalNode.second.col % 17;
-            }
+        bool operator()(const Node* lhs, const Node* rhs) const  
+        {
+            return *lhs < *rhs;
+        }
     };
+
 };
 
 namespace PathFinding
@@ -115,16 +151,14 @@ namespace PathFinding
         Node *nodes[GRID_HEIGHT * GRID_WIDTH];
         for(int n = 0; n < GRID_HEIGHT * GRID_WIDTH; n++) { nodes[n] = NULL; }
 
-        unordered_set<Node*> closedSet;
-        set<Node*, NodeCompare> openSet;
+        unordered_set<Node> closedSet;
+        set<Node*, NodePtrComp> openSet;
 
         // create starting node in the nodes array
         // 1. construct it
         // 2. set g score to 0
         // 3. set f score to the heuristic to the goal
-        nodes[sR * GRID_WIDTH + sC] = new Node(sR, sC, 999999, 999999, NULL, t);
-        nodes[sR * GRID_WIDTH + sC]->gScore = 0;
-        nodes[sR * GRID_WIDTH + sC]->fScore = heuristic(sR, sC, gR, gC);
+        nodes[sR * GRID_WIDTH + sC] = new Node(sR, sC, heuristic(sR, sC, gR, gC), 0, NULL, t);
 
         // add node to open set data structures
         openSet.insert(nodes[sR * GRID_WIDTH + sC]);
@@ -137,7 +171,7 @@ namespace PathFinding
             openSet.erase(&current);
 
             // add it to the closed set
-            closedSet.insert(&current);
+            closedSet.insert(current);
 
             // iterate through the neighbors in all 8 directions
             for(int i = -1; i < 2; i++)
@@ -176,7 +210,7 @@ namespace PathFinding
                         // out of bounds
                         continue;
                     }
-                    else if(closedSet.find(nodes[newRow * GRID_WIDTH + newCol]) != closedSet.end())
+                    else if(closedSet.find(*nodes[newRow * GRID_WIDTH + newCol]) != closedSet.end())
                     {
                         // if it is in the closed set, we have already visited here
                         continue;
