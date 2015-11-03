@@ -6,22 +6,22 @@
 #include <vector>
 #include <utility>
 #include <queue>
-#include <unordered_set>
 #include <set>
-#include <unordered_map>
 #include <math.h>
+#include <boost/unordered_set.hpp>
+#include <boost/unordered_map.hpp>
 
 namespace std
 {
     class Node
     {
         public:
-            int row, col, time;
-            double gScore, fScore;
+            int row, col;
+            double gScore, fScore, time;
             Node *prev;
 
-            Node(int r, int c, double fS, Node *p, int t);
-            Node(int r, int c, double fS, double gS, Node *p, int t);
+            Node(int r, int c, double fS, Node *p, double t);
+            Node(int r, int c, double fS, double gS, Node *p, double t);
             Node(int r, int c);
 
             bool operator ==(const Node &node) const;

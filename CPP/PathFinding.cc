@@ -3,11 +3,11 @@
 
 #define WIDTH 30
 #define HEIGHT 20
-#define GRANULARITY 1
+#define GRANULARITY 3
 #define GRID_WIDTH (WIDTH * GRANULARITY)
 #define GRID_HEIGHT (HEIGHT * GRANULARITY)
 #define MAX_TIME 5000
-#define TIME_INTERVAL 1000
+#define TIME_INTERVAL .6
 #define D 1
 #define D2 sqrt(2)
 #define DIAGONALS true
@@ -17,9 +17,9 @@
 #include <vector>
 #include <utility>
 #include <queue>
-#include <unordered_set>
+#include <boost/unordered_set.hpp>
+#include <boost/unordered_map.hpp>
 #include <set>
-#include <unordered_map>
 #include <math.h>
 #include "Node.cc"
 
@@ -28,7 +28,14 @@ using namespace std;
 namespace PathFinding
 {
     bool grid[GRID_HEIGHT][GRID_WIDTH];
-    unordered_set<pair<int, Node>> reservationTable;
+    unordered_set<pair<int, Node> > reservationTable;
+
+    void getParams(double &width, double &height, double &granularity)
+    {
+        width = GRID_WIDTH;
+        height = GRID_HEIGHT;
+        granularity = GRANULARITY;
+    }
 
     vector<Node> makePath(Node *final)
     {
@@ -60,10 +67,8 @@ namespace PathFinding
         return octileDistance(r1, c1, r2, c2);
     }
 
-    vector<Node> aStar(int sR, int sC, int gR, int gC, int t)
+    vector<Node> aStar(int sR, int sC, int gR, int gC, double t, vector<Node> &path)
     {
-        vector<Node> path;
-
         // data structures which contain nodes
         Node *nodes[GRID_HEIGHT * GRID_WIDTH];
         for(int n = 0; n < GRID_HEIGHT * GRID_WIDTH; n++) { nodes[n] = NULL; }
@@ -103,7 +108,7 @@ namespace PathFinding
                     // coordinates and time of the neighbor
                     int newRow = current.row + i;
                     int newCol = current.col + j;
-                    int newTime = current.time + TIME_INTERVAL;
+                    double newTime = current.time + TIME_INTERVAL;
                     if(newRow < 0 || newRow > GRID_HEIGHT - 1 || newCol < 0 || newCol > GRID_WIDTH - 1)
                     {
                         // out of bounds
@@ -200,12 +205,34 @@ namespace PathFinding
 
     void convertToGridCoordinates(float x, float y, int &r, int &c)
     {
+        float x2 = (float)WIDTH / 2.0 * -1;
+        for(c = 0; c < GRID_WIDTH; c++)
+        {
+            if(x2 + ((float)WIDTH / (float)GRID_WIDTH * (c + 1)) > x)
+            {
+                break;
+            }
+        }
 
+        float y2 = (float)HEIGHT / 2.0;
+        for(r = 0; r < GRID_HEIGHT; r++)
+        {
+            if(y2 - ((float)HEIGHT / (float)GRID_HEIGHT * (r + 1)) < y)
+            {
+                break;
+            }
+        }
     }
 
     void convertToRoboCoordinates(float &x, float &y, int r, int c)
     {
+        x = (float)WIDTH / 2.0 * -1;
+        x = x + ((float)WIDTH / (float)GRID_WIDTH * c);
+        x = x + ((float)WIDTH / (float)GRID_WIDTH / 2.0);
 
+        y = HEIGHT / 2.0;
+        y = y - ((float)HEIGHT / (float)GRID_HEIGHT * r);
+        y = y - ((float)HEIGHT / (float)GRID_HEIGHT / 2.0);
     }
 
     void drawGrid()
@@ -213,7 +240,7 @@ namespace PathFinding
 
     }
 
-    void drawPath(vector<pair<int, int>> path)
+    void drawPath(vector<pair<int, int> > path)
     {
 
     }
