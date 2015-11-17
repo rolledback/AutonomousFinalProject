@@ -3,7 +3,7 @@
 
 #define WIDTH 30
 #define HEIGHT 20
-#define GRANULARITY 3
+#define GRANULARITY 2
 #define GRID_WIDTH (WIDTH * GRANULARITY)
 #define GRID_HEIGHT (HEIGHT * GRANULARITY)
 #define MAX_TIME 5000
@@ -12,23 +12,23 @@
 #define D2 sqrt(2)
 #define DIAGONALS true
 
-#include <iostream>
-#include <fstream>
+#include <string>
+#include <sstream>
 #include <vector>
-#include <utility>
-#include <queue>
 #include <boost/unordered_set.hpp>
 #include <boost/unordered_map.hpp>
 #include <set>
 #include <math.h>
 #include "Node.cc"
+#include "audio.h"
+#include "naobehavior.h"
 
 using namespace std;
 
 namespace PathFinding
 {
     bool grid[GRID_HEIGHT][GRID_WIDTH];
-    unordered_set<pair<int, Node> > reservationTable;
+    unordered_set<double> reservationTable;
 
     void getParams(double &width, double &height, double &granularity)
     {
@@ -142,11 +142,11 @@ namespace PathFinding
                         // if it is in the closed set, we have already visited here
                         continue;
                     }
-                    else if (reservationTable.find(tempTN) != reservationTable.end())
-                    {
-                        // if it already reserved, then we can't go here
-                        continue;
-                    }
+                    // else if (reservationTable.find(tempTN) != reservationTable.end())
+                    // {
+                    //     // if it already reserved, then we can't go here
+                    //     continue;
+                    // }
 
                     double tentativeGScore = 0;
                     if(abs(i) == abs(j))
@@ -235,13 +235,70 @@ namespace PathFinding
         y = y - ((float)HEIGHT / (float)GRID_HEIGHT / 2.0);
     }
 
-    void drawGrid()
+    void createReservationMessage(vector<Node> path, uint begin, uint size, string &message)
     {
+        vector<int> bits;
+        ostringstream oss;
 
+        int startTime = (int)(path[begin * size].time * 100);
+        vector<int> startTimeBits = intToBits(startTime, 16);
+        bits.insert(bits.end(), startTimeBits.begin(), startTimeBits.end());
+
+        int intervalTime = (int)(TIME_INTERVAL * 100);
+        vector<int> intervalTimeBits = intToBits(intervalTime, 16);
+        bits.insert(bits.end(), intervalTimeBits.begin(), intervalTimeBits.end());
+
+        for(uint i = begin * size; i < (begin * size) + size && i < path.size(); i++)
+        {
+            vector<int> rowBits = intToBits(path[i].row, 8);
+            bits.insert(bits.end(), rowBits.begin(), rowBits.end());
+            
+            vector<int> colBits = intToBits(path[i].col, 8);
+            bits.insert(bits.end(), colBits.begin(), colBits.end());
+        }
+
+        string temp;
+        bitsToString(bits, temp);
+        oss << temp;
+        message = oss.str();
     }
 
-    void drawPath(vector<pair<int, int> > path)
+    void processReservationMessage(string &heardMessage, double &startTime, double &intervalTime, vector<Node> &path)
     {
+        string strippedMessage;
+        for(int i = heardMessage.length() - 2; i > -1 && heardMessage[i] != ' '; i--)
+        {
+            strippedMessage = heardMessage[i] + strippedMessage;
+        }
+
+        vector<int> bits;
+        stringToBits(strippedMessage, bits);
+
+        startTime = ((double)bitsToInt(bits, 0, 15) / 100);
+        intervalTime = ((double)bitsToInt(bits, 16, 31) / 100);
+
+        uint bitIndex = 32;
+        int segSize = 7;
+        int i = 1;
+        
+        if(strippedMessage.length() == 0)
+        {
+            return;
+        }
+
+        while(bitIndex < bits.size() - segSize)
+        {
+            int row = bitsToInt(bits, bitIndex, bitIndex + segSize);
+            bitIndex += segSize + 1;
+
+            int col = bitsToInt(bits, bitIndex, bitIndex + segSize);
+            bitIndex += segSize + 1;
+
+            Node temp = Node(row, col);
+            temp.time = startTime  * i++;
+
+            path.push_back(temp);
+        }
 
     }
 };
