@@ -28,7 +28,6 @@ using namespace std;
 namespace PathFinding
 {
     bool grid[GRID_HEIGHT][GRID_WIDTH];
-    unordered_set<double> reservationTable;
 
     void getParams(double &width, double &height, double &granularity)
     {
@@ -67,7 +66,23 @@ namespace PathFinding
         return octileDistance(r1, c1, r2, c2);
     }
 
-    vector<Node> aStar(int sR, int sC, int gR, int gC, double t, vector<Node> &path)
+    bool isReserved(vector<Node> &reservationTable, int row, int col, double time, double interval)
+    {
+        for(uint i = 0; i < reservationTable.size(); i++)
+        {
+            if(reservationTable[i].row == row && reservationTable[i].col == col)
+            {
+                if(abs(reservationTable[i].time - time) < interval)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    vector<Node> aStar(int sR, int sC, int gR, int gC, double t, vector<Node> &path, vector<Node> &reservationTable)
     {
         // data structures which contain nodes
         Node *nodes[GRID_HEIGHT * GRID_WIDTH];
@@ -100,7 +115,7 @@ namespace PathFinding
             {
                 for(int j = -1; j < 2; j++)
                 {
-                    if((i == 0 && j == 0) || (abs(j) == abs(i) && !DIAGONALS))
+                    if(abs(j) == abs(i) && !DIAGONALS)
                     {
                         continue;
                     }
@@ -142,11 +157,11 @@ namespace PathFinding
                         // if it is in the closed set, we have already visited here
                         continue;
                     }
-                    // else if (reservationTable.find(tempTN) != reservationTable.end())
-                    // {
-                    //     // if it already reserved, then we can't go here
-                    //     continue;
-                    // }
+                    else if(isReserved(reservationTable, newRow, newCol, newTime, TIME_INTERVAL))
+                    {
+                        // if it is reserved
+                        continue;
+                    }
 
                     double tentativeGScore = 0;
                     if(abs(i) == abs(j))
@@ -235,10 +250,13 @@ namespace PathFinding
         y = y - ((float)HEIGHT / (float)GRID_HEIGHT / 2.0);
     }
 
-    void createReservationMessage(vector<Node> path, uint begin, uint size, string &message)
+    void createReservationMessage(vector<Node> path, uint begin, uint size, int uNum, string &message)
     {
         vector<int> bits;
         ostringstream oss;
+
+        vector<int> uNumBits = intToBits(uNum, 4);
+        bits.insert(bits.end(), uNumBits.begin(), uNumBits.end());
 
         int startTime = (int)(path[begin * size].time * 100);
         vector<int> startTimeBits = intToBits(startTime, 16);
@@ -250,10 +268,10 @@ namespace PathFinding
 
         for(uint i = begin * size; i < (begin * size) + size && i < path.size(); i++)
         {
-            vector<int> rowBits = intToBits(path[i].row, 8);
+            vector<int> rowBits = intToBits(path[path.size() - 1 - i].row, 8);
             bits.insert(bits.end(), rowBits.begin(), rowBits.end());
             
-            vector<int> colBits = intToBits(path[i].col, 8);
+            vector<int> colBits = intToBits(path[path.size() - 1 - i].col, 8);
             bits.insert(bits.end(), colBits.begin(), colBits.end());
         }
 
@@ -263,7 +281,7 @@ namespace PathFinding
         message = oss.str();
     }
 
-    void processReservationMessage(string &heardMessage, double &startTime, double &intervalTime, vector<Node> &path)
+    void processReservationMessage(string &heardMessage, int &uNum, double &startTime, double &intervalTime, vector<Node> &path)
     {
         string strippedMessage;
         for(int i = heardMessage.length() - 2; i > -1 && heardMessage[i] != ' '; i--)
@@ -274,10 +292,12 @@ namespace PathFinding
         vector<int> bits;
         stringToBits(strippedMessage, bits);
 
-        startTime = ((double)bitsToInt(bits, 0, 15) / 100);
-        intervalTime = ((double)bitsToInt(bits, 16, 31) / 100);
+        uNum = bitsToInt(bits, 0, 3);
 
-        uint bitIndex = 32;
+        startTime = ((double)bitsToInt(bits, 4, 19)) / 100.0;
+        intervalTime = ((double)bitsToInt(bits, 20, 35)) / 100.0;
+
+        uint bitIndex = 36;
         int segSize = 7;
         int i = 1;
         
@@ -295,12 +315,32 @@ namespace PathFinding
             bitIndex += segSize + 1;
 
             Node temp = Node(row, col);
-            temp.time = startTime  * i++;
+            temp.time = startTime + (intervalTime * i++);
+
+            temp.uNum = uNum;
 
             path.push_back(temp);
         }
-
     }
+
+    void addToReservationTable(vector<Node> &reservationTable, vector<Node> &toAdd)
+    {
+        reservationTable.insert(reservationTable.end(), toAdd.begin(), toAdd.end());
+    }
+
+    void removePlayersReservations(vector<Node> &reservationTable, int uNum)
+    {
+        for(uint i = 0; i < reservationTable.size();)
+        {
+            if(reservationTable[i].uNum == uNum)
+            {
+                reservationTable[i] = reservationTable.back();
+                reservationTable.pop_back();
+            }
+            else
+                ++i;
+            }
+        }
 };
 
 #endif

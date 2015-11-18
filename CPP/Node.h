@@ -7,6 +7,7 @@ namespace std
     {
         public:
             int row, col;
+            int uNum;
             double gScore, fScore, time;
             Node *prev;
 
