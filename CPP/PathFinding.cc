@@ -72,7 +72,7 @@ namespace PathFinding
         {
             if(reservationTable[i].row == row && reservationTable[i].col == col)
             {
-                if(abs(reservationTable[i].time - time) < interval)
+                if(reservationTable[i].time - (interval * 5) < time && time < reservationTable[i].time + (interval * 5))
                 {
                     return true;
                 }
@@ -82,7 +82,20 @@ namespace PathFinding
         return false;
     }
 
-    vector<Node> aStar(int sR, int sC, int gR, int gC, double t, vector<Node> &path, vector<Node> &reservationTable)
+    bool canReserveWindow(vector<Node> &path, vector<Node> &reservationTable, int currentWindow, int windowSize, double timeInterval)
+    {
+        for(int i = 0; i < windowSize; i++)
+        {
+            int index = path.size() - 1 - i - (currentWindow * windowSize);
+            if(isReserved(reservationTable, path[index].row, path[index].col, path[index].time, timeInterval))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    vector<Node> aStar(int sR, int sC, int gR, int gC, double t, vector<Node> &path, vector<Node> &reservationTable, double timeInterval)
     {
         // data structures which contain nodes
         Node *nodes[GRID_HEIGHT * GRID_WIDTH];
@@ -123,7 +136,7 @@ namespace PathFinding
                     // coordinates and time of the neighbor
                     int newRow = current.row + i;
                     int newCol = current.col + j;
-                    double newTime = current.time + TIME_INTERVAL;
+                    double newTime = current.time + timeInterval;
                     if(newRow < 0 || newRow > GRID_HEIGHT - 1 || newCol < 0 || newCol > GRID_WIDTH - 1)
                     {
                         // out of bounds
@@ -157,7 +170,7 @@ namespace PathFinding
                         // if it is in the closed set, we have already visited here
                         continue;
                     }
-                    else if(isReserved(reservationTable, newRow, newCol, newTime, TIME_INTERVAL))
+                    else if(isReserved(reservationTable, newRow, newCol, newTime, timeInterval))
                     {
                         // if it is reserved
                         continue;
@@ -250,7 +263,7 @@ namespace PathFinding
         y = y - ((float)HEIGHT / (float)GRID_HEIGHT / 2.0);
     }
 
-    void createReservationMessage(vector<Node> path, uint begin, uint size, int uNum, string &message)
+    void createReservationMessage(vector<Node> path, uint begin, uint size, int uNum, double timeInterval, string &message)
     {
         vector<int> bits;
         ostringstream oss;
@@ -262,7 +275,7 @@ namespace PathFinding
         vector<int> startTimeBits = intToBits(startTime, 16);
         bits.insert(bits.end(), startTimeBits.begin(), startTimeBits.end());
 
-        int intervalTime = (int)(TIME_INTERVAL * 100);
+        int intervalTime = (int)(timeInterval * 100);
         vector<int> intervalTimeBits = intToBits(intervalTime, 16);
         bits.insert(bits.end(), intervalTimeBits.begin(), intervalTimeBits.end());
 

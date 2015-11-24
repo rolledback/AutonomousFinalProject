@@ -9,7 +9,7 @@ namespace std
         fScore = fS;
         gScore = 0;
         prev = p;
-        time = 0;
+        time = t;
     }
 
     Node::Node(int r, int c, double fS, double gS, Node *p, double t)
@@ -19,7 +19,7 @@ namespace std
         fScore = fS;
         gScore = gS;
         prev = p;
-        time = 0;
+        time = t;
     }
 
     Node::Node(int r, int c)
