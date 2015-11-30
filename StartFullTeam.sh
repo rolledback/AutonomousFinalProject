@@ -5,3 +5,8 @@ rm ../outputs/*;
 ./start_agent.sh -u 4 -t my_team > ../outputs/agent4.txt;
 ./start_agent.sh -u 5 -t my_team > ../outputs/agent5.txt;
 ./start_agent.sh -u 6 -t my_team > ../outputs/agent6.txt;
+./start_agent.sh -u 7 -t my_team > ../outputs/agent6.txt;
+./start_agent.sh -u 8 -t my_team > ../outputs/agent6.txt;
+./start_agent.sh -u 9 -t my_team > ../outputs/agent6.txt;
+./start_agent.sh -u 10 -t my_team > ../outputs/agent6.txt;
+./start_agent.sh -u 11 -t my_team > ../outputs/agent6.txt;

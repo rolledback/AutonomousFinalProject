@@ -18,6 +18,7 @@
 #include <boost/unordered_set.hpp>
 #include <boost/unordered_map.hpp>
 #include <set>
+#include <queue>
 #include <math.h>
 #include "Node.cc"
 #include "audio.h"
@@ -28,6 +29,17 @@ using namespace std;
 namespace PathFinding
 {
     bool grid[GRID_HEIGHT][GRID_WIDTH];
+
+    void resetGrid()
+    {
+        for(int i = 0; i < HEIGHT * GRANULARITY; i++)
+        {
+            for(int j = 0; j < WIDTH * GRANULARITY; j++)
+            {
+                grid[i][j] = false;
+            }
+        }
+    }
 
     void getParams(double &width, double &height, double &granularity)
     {
@@ -47,6 +59,7 @@ namespace PathFinding
         return retVector;
     }
 
+    // Defines octile distance
     double octileDistance(int r1, int c1, int r2, int c2)
     {
         double dr = abs(r1 - r2);
@@ -54,6 +67,7 @@ namespace PathFinding
         return D * (dr + dc) + (D2 - 2 * D) * min(dr, dc);
     }
 
+    // Defines manhattan distance
     double manhattanDistance(int r1, int c1, int r2, int c2)
     {
         double dr = abs(r1 - r2);
@@ -61,18 +75,20 @@ namespace PathFinding
         return D * (dr + dc);
     }
 
+    // Defines the heuristic that one may or may not use
     double heuristic(int r1, int c1, int r2, int c2)
     {
         return octileDistance(r1, c1, r2, c2);
     }
 
+    // An agent may or may not be reserved in a column that may or may not use time that may or may not be in a time interval. may or may not
     bool isReserved(vector<Node> &reservationTable, int row, int col, double time, double interval)
     {
         for(uint i = 0; i < reservationTable.size(); i++)
         {
             if(reservationTable[i].row == row && reservationTable[i].col == col)
             {
-                if(reservationTable[i].time - (interval * 5) < time && time < reservationTable[i].time + (interval * 5))
+                // if(abs(reservationTable[i].time - time) < (interval * 2.0))
                 {
                     return true;
                 }
@@ -82,6 +98,7 @@ namespace PathFinding
         return false;
     }
 
+    // Can one even reserve a window?
     bool canReserveWindow(vector<Node> &path, vector<Node> &reservationTable, int currentWindow, int windowSize, double timeInterval)
     {
         for(int i = 0; i < windowSize; i++)
@@ -95,48 +112,37 @@ namespace PathFinding
         return true;
     }
 
-    vector<Node> aStar(int sR, int sC, int gR, int gC, double t, vector<Node> &path, vector<Node> &reservationTable, double timeInterval)
+    vector<Node> bfs(int sR, int sC, int gR, int gC, double t, vector<Node> &path, vector<Node> &reservationTable, double timeInterval)
     {
-        // data structures which contain nodes
         Node *nodes[GRID_HEIGHT * GRID_WIDTH];
         for(int n = 0; n < GRID_HEIGHT * GRID_WIDTH; n++) { nodes[n] = NULL; }
 
-        unordered_set<Node> closedSet;
-        set<Node*, NodePtrComp> openSet;
+        resetGrid();
+        queue<Node*> stack;
 
-        // create starting node in the nodes array
-        // 1. construct it
-        // 2. set g score to 0
-        // 3. set f score to the heuristic to the goal
         nodes[sR * GRID_WIDTH + sC] = new Node(sR, sC, heuristic(sR, sC, gR, gC), 0, NULL, t);
 
-        // add node to open set data structures
-        openSet.insert(nodes[sR * GRID_WIDTH + sC]);
+        stack.push(nodes[sR * GRID_WIDTH + sC]);
+        grid[sR][sC] = true;
 
-        // do the A*
-        while(openSet.size() != 0)
+        while(stack.size() != 0)
         {
-            // get and remove top node from our open set queue
-            Node current = **openSet.begin();
-            openSet.erase(openSet.begin()); // this isn't working
+            Node current = *stack.front();
+            stack.pop();
 
-            // add it to the closed set
-            closedSet.insert(current);
-
-            // iterate through the neighbors in all 8 directions
             for(int i = -1; i < 2; i++)
             {
                 for(int j = -1; j < 2; j++)
                 {
-                    if(abs(j) == abs(i) && !DIAGONALS)
+                    if(abs(i) == abs(j))
                     {
                         continue;
                     }
-                    
-                    // coordinates and time of the neighbor
+
                     int newRow = current.row + i;
                     int newCol = current.col + j;
                     double newTime = current.time + timeInterval;
+
                     if(newRow < 0 || newRow > GRID_HEIGHT - 1 || newCol < 0 || newCol > GRID_WIDTH - 1)
                     {
                         // out of bounds
@@ -147,9 +153,6 @@ namespace PathFinding
                     {
                         nodes[newRow * GRID_WIDTH + newCol] = new Node(newRow, newCol);
                     }
-
-                    // temporary objects for lookup in the reservation table
-                    pair<int, Node> tempTN(newTime, Node(newRow, newCol));
 
                     if(newRow == gR && newCol == gC)
                     {
@@ -165,7 +168,7 @@ namespace PathFinding
                         return path;
                     }
 
-                    else if(closedSet.find(*nodes[newRow * GRID_WIDTH + newCol]) != closedSet.end())
+                    else if(grid[newRow][newCol])
                     {
                         // if it is in the closed set, we have already visited here
                         continue;
@@ -175,6 +178,160 @@ namespace PathFinding
                         // if it is reserved
                         continue;
                     }
+
+                    // put on the stack
+                    nodes[newRow * GRID_WIDTH + newCol]->prev = nodes[(current.row) * GRID_WIDTH + current.col];
+                    nodes[newRow * GRID_WIDTH + newCol]->time = newTime;
+                    stack.push(nodes[newRow * GRID_WIDTH + newCol]);
+                    grid[newRow][newCol] = true;
+                }
+            }
+        }
+
+        // free the node array
+        for(int n = 0; n < GRID_HEIGHT * GRID_WIDTH; n++) { if(nodes[n] != NULL) free(nodes[n]); }
+
+        // return the path, it will have size 0
+        return path;
+    }
+
+    Node* lowestFScore(Node **openSet, int &index, int &currentSize)
+    {
+        int lowestFScore = 99999;
+        int lowestIndex = -1;
+
+        for(int n = 0; n < GRID_HEIGHT * GRID_WIDTH; n++)
+        {
+            if(openSet[n] != NULL)
+            {
+                currentSize++;
+                if(openSet[n]->fScore < lowestFScore)
+                {
+                    lowestFScore = openSet[n]->fScore;
+                    lowestIndex = n;
+                }
+            }
+        }
+
+        index = lowestIndex;
+        return openSet[lowestIndex];
+    }
+
+    bool sizeNotZero(Node **openSet)
+    {
+        for(int n = 0; n < GRID_HEIGHT * GRID_WIDTH; n++)
+        {
+            if(openSet[n] != NULL)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Who is aStar? You're aStar! :D
+    vector<Node> aStar(int sR, int sC, int gR, int gC, double t, vector<Node> &path, vector<Node> &reservationTable, double timeInterval)
+    {
+        cout << "\nA*" << endl;
+        cout << "Starting row: " << sR << " starting column: " << sC << endl;
+        cout << "Goal row: " << gR << " goal column: " << gC << endl;
+        cout << "Starting time: " << t << " time interval: " << timeInterval << endl;
+        cout << endl;
+
+        // data structures which contain nodes
+        resetGrid();
+        Node *openSet[GRID_HEIGHT * GRID_WIDTH];
+        Node *nodes[GRID_HEIGHT * GRID_WIDTH];
+        for(int n = 0; n < GRID_HEIGHT * GRID_WIDTH; n++) { nodes[n] = NULL; openSet[n] = NULL; }
+
+        // create starting node in the nodes array
+        // 1. construct it
+        // 2. set g score to 0
+        // 3. set f score to the heuristic to the goal
+        nodes[sR * GRID_WIDTH + sC] = new Node(sR, sC, heuristic(sR, sC, gR, gC), 0, NULL, t);
+
+        // add node to open set data structures
+        openSet[sR * GRID_WIDTH + sC] = nodes[sR * GRID_WIDTH + sC];
+
+        // do the A*
+        while(sizeNotZero(openSet))
+        {
+            cout << "\nIterate the open set" << endl;
+                                              
+            int index = 0, currentSize = 0;
+            Node current = *lowestFScore(openSet, index, currentSize);
+            openSet[index] = NULL;
+            cout << "Open set size: " << currentSize << endl;
+            cout << "Current node\n" << "Row: " << current.row << " Col: " << current.col << endl;
+
+            // add it to the closed set
+            grid[current.row][current.col] = true;
+
+            cout << "That is now true in the closed set." << endl;
+
+            // iterate through the neighbors in all 8 directions
+            for(int i = -1; i < 2; i++)
+            {
+                for(int j = -1; j < 2; j++)
+                {
+                    cout << endl;
+                    // coordinates and time of the neighbor
+                    int newRow = current.row + i;
+                    int newCol = current.col + j;
+                    double newTime = current.time + timeInterval;
+
+                    if(i == 0 && j == 0)
+                    {
+                        cout << "We aren't evaluating being in the same spot" << endl;
+                        continue;
+                    }
+                    else if(abs(j) == abs(i) && !DIAGONALS)
+                    {
+                        cout << "We aren't evaluating diagonals" << endl;
+                        continue;
+                    }
+                    else if(newRow < 0 || newRow > GRID_HEIGHT - 1 || newCol < 0 || newCol > GRID_WIDTH - 1)
+                    {
+                        // out of bounds
+                        cout << "This would be out of bounds" << endl;
+                        continue;
+                    }
+                    else if(grid[newRow][newCol])
+                    {
+                        // if it is in the closed set, we have already visited here
+                        cout << "We have already visited this node" << endl;
+                        continue;
+                    }
+                    else if(isReserved(reservationTable, newRow, newCol, newTime, timeInterval))
+                    {
+                        // if it is reserved
+                        cout << "It is reserved at the current time in the reservation table." << endl;
+                        continue;
+                    }
+
+                    cout << "Passed all the checks. Evaluating neighbor, row: " << newRow << " col: " << newCol << " time: " << newTime << endl;
+
+                    if(nodes[newRow * GRID_WIDTH + newCol] == NULL)
+                    {
+                        cout << "Construct the node object as the pointer to it is null" << endl;
+                        nodes[newRow * GRID_WIDTH + newCol] = new Node(newRow, newCol);
+                    }
+
+                    if(newRow == gR && newCol == gC)
+                    {
+                        // found the goal
+                        cout << "Found the goal" << endl;
+                        nodes[newRow * GRID_WIDTH + newCol]->prev = nodes[(current.row) * GRID_WIDTH + current.col];
+                        nodes[newRow * GRID_WIDTH + newCol]->time = newTime;
+                        path = makePath(nodes[newRow * GRID_WIDTH + newCol]);
+
+                        // free the node array
+                        for(int n = 0; n < GRID_HEIGHT * GRID_WIDTH; n++) { if(nodes[n] != NULL) free(nodes[n]); }
+
+                        // found the goal
+                        return path;
+                    }
+
 
                     double tentativeGScore = 0;
                     if(abs(i) == abs(j))
@@ -188,26 +345,30 @@ namespace PathFinding
                     tentativeGScore += current.gScore;
 
 
-                    if(openSet.find(nodes[newRow * GRID_WIDTH + newCol]) == openSet.end())
+                    if(openSet[newRow * GRID_WIDTH + newCol] == NULL)
                     {
                         // we have discovered a new node
+                        cout << "Not in the open set, congrats you found a new node!" << endl;
                     }
                     else if(tentativeGScore >= nodes[newRow * GRID_WIDTH + newCol]->gScore)
                     {
                         // not a better path
+                        cout << "Not a new node, and the score going this way to it is worse than the original score you found." << endl;
                         continue;
                     }
                     else
                     {
-                        openSet.erase(nodes[newRow * GRID_WIDTH + newCol]);
+                        cout << "Not a new node, and the score going this way to it is better than the original score you found." << endl;
+                        openSet[newRow * GRID_WIDTH + newCol] = NULL;
                     }
 
                     // best we have so far, record it
+                    cout << "Record this into the open set" << endl;
                     nodes[newRow * GRID_WIDTH + newCol]->prev = nodes[(current.row) * GRID_WIDTH + current.col];
                     nodes[newRow * GRID_WIDTH + newCol]->gScore = tentativeGScore;
                     nodes[newRow * GRID_WIDTH + newCol]->fScore = tentativeGScore + heuristic(newRow, newCol, gR, gC);
                     nodes[newRow * GRID_WIDTH + newCol]->time = newTime;
-                    openSet.insert(nodes[newRow * GRID_WIDTH + newCol]);
+                    openSet[newRow * GRID_WIDTH + newCol] = nodes[newRow * GRID_WIDTH + newCol];
                 }
 
             }
@@ -218,17 +379,6 @@ namespace PathFinding
 
         // return the path, it will have size 0
         return path;
-    }
-
-    void resetGrid()
-    {
-        for(int i = 0; i < HEIGHT * GRANULARITY; i++)
-        {
-            for(int j = 0; j < WIDTH * GRANULARITY; j++)
-            {
-                grid[i][j] = true;
-            }
-        }
     }
 
     void convertToGridCoordinates(float x, float y, int &r, int &c)
