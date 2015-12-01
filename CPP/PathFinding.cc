@@ -11,6 +11,7 @@
 #define D 1
 #define D2 sqrt(2)
 #define DIAGONALS true
+#define DEBUG_PATH false
 
 #include <string>
 #include <sstream>
@@ -232,11 +233,11 @@ namespace PathFinding
     // Who is aStar? You're aStar! :D
     vector<Node> aStar(int sR, int sC, int gR, int gC, double t, vector<Node> &path, vector<Node> &reservationTable, double timeInterval)
     {
-        cout << "\nA*" << endl;
-        cout << "Starting row: " << sR << " starting column: " << sC << endl;
-        cout << "Goal row: " << gR << " goal column: " << gC << endl;
-        cout << "Starting time: " << t << " time interval: " << timeInterval << endl;
-        cout << endl;
+        if(DEBUG_PATH) cout << "\nA*" << endl;
+        if(DEBUG_PATH) cout << "Starting row: " << sR << " starting column: " << sC << endl;
+        if(DEBUG_PATH) cout << "Goal row: " << gR << " goal column: " << gC << endl;
+        if(DEBUG_PATH) cout << "Starting time: " << t << " time interval: " << timeInterval << endl;
+        if(DEBUG_PATH) cout << endl;
 
         // data structures which contain nodes
         resetGrid();
@@ -256,25 +257,25 @@ namespace PathFinding
         // do the A*
         while(sizeNotZero(openSet))
         {
-            cout << "\nIterate the open set" << endl;
+            if(DEBUG_PATH) cout << "\nIterate the open set" << endl;
                                               
             int index = 0, currentSize = 0;
             Node current = *lowestFScore(openSet, index, currentSize);
             openSet[index] = NULL;
-            cout << "Open set size: " << currentSize << endl;
-            cout << "Current node\n" << "Row: " << current.row << " Col: " << current.col << endl;
+            if(DEBUG_PATH) cout << "Open set size: " << currentSize << endl;
+            if(DEBUG_PATH) cout << "Current node\n" << "Row: " << current.row << " Col: " << current.col << endl;
 
             // add it to the closed set
             grid[current.row][current.col] = true;
 
-            cout << "That is now true in the closed set." << endl;
+            if(DEBUG_PATH) cout << "That is now true in the closed set." << endl;
 
             // iterate through the neighbors in all 8 directions
             for(int i = -1; i < 2; i++)
             {
                 for(int j = -1; j < 2; j++)
                 {
-                    cout << endl;
+                    if(DEBUG_PATH) cout << endl;
                     // coordinates and time of the neighbor
                     int newRow = current.row + i;
                     int newCol = current.col + j;
@@ -282,45 +283,45 @@ namespace PathFinding
 
                     if(i == 0 && j == 0)
                     {
-                        cout << "We aren't evaluating being in the same spot" << endl;
+                        if(DEBUG_PATH) cout << "We aren't evaluating being in the same spot" << endl;
                         continue;
                     }
                     else if(abs(j) == abs(i) && !DIAGONALS)
                     {
-                        cout << "We aren't evaluating diagonals" << endl;
+                        if(DEBUG_PATH) cout << "We aren't evaluating diagonals" << endl;
                         continue;
                     }
                     else if(newRow < 0 || newRow > GRID_HEIGHT - 1 || newCol < 0 || newCol > GRID_WIDTH - 1)
                     {
                         // out of bounds
-                        cout << "This would be out of bounds" << endl;
+                        if(DEBUG_PATH) cout << "This would be out of bounds" << endl;
                         continue;
                     }
                     else if(grid[newRow][newCol])
                     {
                         // if it is in the closed set, we have already visited here
-                        cout << "We have already visited this node" << endl;
+                        if(DEBUG_PATH) cout << "We have already visited this node" << endl;
                         continue;
                     }
                     else if(isReserved(reservationTable, newRow, newCol, newTime, timeInterval))
                     {
                         // if it is reserved
-                        cout << "It is reserved at the current time in the reservation table." << endl;
+                        if(DEBUG_PATH) cout << "It is reserved at the current time in the reservation table." << endl;
                         continue;
                     }
 
-                    cout << "Passed all the checks. Evaluating neighbor, row: " << newRow << " col: " << newCol << " time: " << newTime << endl;
+                    if(DEBUG_PATH) cout << "Passed all the checks. Evaluating neighbor, row: " << newRow << " col: " << newCol << " time: " << newTime << endl;
 
                     if(nodes[newRow * GRID_WIDTH + newCol] == NULL)
                     {
-                        cout << "Construct the node object as the pointer to it is null" << endl;
+                        if(DEBUG_PATH) cout << "Construct the node object as the pointer to it is null" << endl;
                         nodes[newRow * GRID_WIDTH + newCol] = new Node(newRow, newCol);
                     }
 
                     if(newRow == gR && newCol == gC)
                     {
                         // found the goal
-                        cout << "Found the goal" << endl;
+                        if(DEBUG_PATH) cout << "Found the goal" << endl;
                         nodes[newRow * GRID_WIDTH + newCol]->prev = nodes[(current.row) * GRID_WIDTH + current.col];
                         nodes[newRow * GRID_WIDTH + newCol]->time = newTime;
                         path = makePath(nodes[newRow * GRID_WIDTH + newCol]);
@@ -348,22 +349,22 @@ namespace PathFinding
                     if(openSet[newRow * GRID_WIDTH + newCol] == NULL)
                     {
                         // we have discovered a new node
-                        cout << "Not in the open set, congrats you found a new node!" << endl;
+                        if(DEBUG_PATH) cout << "Not in the open set, congrats you found a new node!" << endl;
                     }
                     else if(tentativeGScore >= nodes[newRow * GRID_WIDTH + newCol]->gScore)
                     {
                         // not a better path
-                        cout << "Not a new node, and the score going this way to it is worse than the original score you found." << endl;
+                        if(DEBUG_PATH) cout << "Not a new node, and the score going this way to it is worse than the original score you found." << endl;
                         continue;
                     }
                     else
                     {
-                        cout << "Not a new node, and the score going this way to it is better than the original score you found." << endl;
+                        if(DEBUG_PATH) cout << "Not a new node, and the score going this way to it is better than the original score you found." << endl;
                         openSet[newRow * GRID_WIDTH + newCol] = NULL;
                     }
 
                     // best we have so far, record it
-                    cout << "Record this into the open set" << endl;
+                    if(DEBUG_PATH) cout << "Record this into the open set" << endl;
                     nodes[newRow * GRID_WIDTH + newCol]->prev = nodes[(current.row) * GRID_WIDTH + current.col];
                     nodes[newRow * GRID_WIDTH + newCol]->gScore = tentativeGScore;
                     nodes[newRow * GRID_WIDTH + newCol]->fScore = tentativeGScore + heuristic(newRow, newCol, gR, gC);
